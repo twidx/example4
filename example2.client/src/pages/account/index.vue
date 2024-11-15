@@ -1,13 +1,22 @@
 <template>
   <h1>帳號管理</h1>
-  <button
-    type="button"
-    class="btn btn-warning"
-    @click.prevent="fun.doNew"
-    :disabled="vm.isEdit"
-  >
-    新增
-  </button>
+  <div class="card mb-3">
+    <div class="card-body">
+      <form class="row g-3" @submit.prevent="fun.doQuery(1)">
+        <div class="col-auto">
+          <label for="fAccount" class="visually-hidden">帳號</label>
+          <input type="text" class="form-control" id="fAccount" placeholder="帳號" v-model.trim="queryData.account" />
+        </div>
+        <div class="col-auto">
+          <button type="submit" class="btn btn-primary">查詢</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <div class="d-flex gap-2">
+    <button type="button" class="btn btn-warning" @click.prevent="fun.doNew" :disabled="vm.isEdit">新增</button>
+    <button type="button" class="btn btn-success" @click.prevent="fun.doExcel" :disabled="vm.isEdit">匯出Excel</button>
+  </div>
   <table class="table table-striped table-hover">
     <thead>
       <tr>
@@ -25,65 +34,27 @@
         <template v-if="item.isEdit">
           <td>
             <div class="d-flex gap-2">
-              <button
-                type="button"
-                class="btn btn-success"
-                @click.prevent="fun.doSave"
-              >
-                存檔
-              </button>
-              <button
-                type="button"
-                class="btn btn-secondary"
-                @click.prevent="fun.doCancel"
-                autocomplete="off"
-              >
-                取消
-              </button>
+              <button type="button" class="btn btn-success" @click.prevent="fun.doSave">存檔</button>
+              <button type="button" class="btn btn-secondary" @click.prevent="fun.doCancel" autocomplete="off">取消</button>
             </div>
           </td>
           <td class="align-middle">
-            <input
-              type="text"
-              class="form-control"
-              v-model="vm.item.accountNo"
-              autocomplete="off"
-              v-if="item.isNew"
-            />
+            <input type="text" class="form-control" v-model="vm.item.accountNo" autocomplete="off" v-if="item.isNew" />
             <span v-else>{{ item.accountNo }}</span>
           </td>
           <td>
             <input type="text" class="form-control" v-model="vm.item.name" />
           </td>
           <td>
-            <input
-              type="password"
-              class="form-control"
-              v-model="vm.item.password"
-              autocomplete="off"
-            />
+            <input type="password" class="form-control" v-model="vm.item.password" autocomplete="off" />
           </td>
           <th></th>
         </template>
         <template v-else>
           <td>
             <div class="d-flex gap-2">
-              <button
-                type="button"
-                class="btn btn-primary"
-                @click.prevent="fun.doEdit(item, idx)"
-                :disabled="vm.isEdit"
-              >
-                修改
-              </button>
-              <button
-                type="button"
-                class="btn btn-danger"
-                @click.prevent="fun.doRemove(item)"
-                :disabled="vm.isEdit"
-              >
-                刪除
-              </button>
+              <button type="button" class="btn btn-primary" @click.prevent="fun.doEdit(item, idx)" :disabled="vm.isEdit">修改</button>
+              <button type="button" class="btn btn-danger" @click.prevent="fun.doRemove(item)" :disabled="vm.isEdit">刪除</button>
             </div>
           </td>
           <td class="align-middle">{{ item.accountNo }}</td>
@@ -94,6 +65,26 @@
       </tr>
     </tbody>
   </table>
+
+  <nav aria-label="Page navigation example">
+    <ul class="pagination">
+      <li class="page-item">
+        <a class="page-link" href="#" aria-label="Previous">
+          <span aria-hidden="true">&laquo;</span>
+        </a>
+      </li>
+      <li class="page-item" v-for="p in pageInfo.size">
+        <a class="page-link" href="#" :class="{ active: p == queryData.page }" @click.prevent="fun.doQuery(p)">
+          {{ p }}
+        </a>
+      </li>
+      <li class="page-item">
+        <a class="page-link" href="#" aria-label="Next">
+          <span aria-hidden="true">&raquo;</span>
+        </a>
+      </li>
+    </ul>
+  </nav>
 </template>
 
 <script setup lang="ts">
@@ -103,7 +94,7 @@ const vm = ref({
   data: [] as Array<any>,
   item: {} as any,
   idx: -1,
-  isEdit: false,
+  isEdit: false
 });
 
 const token = localStorage.getItem("example1_token");
@@ -111,22 +102,47 @@ const token = localStorage.getItem("example1_token");
 const headers = {
   "Content-Type": "application/json",
   Accept: "application/json",
-  Authorization: `Bearer ${token}`,
+  Authorization: `Bearer ${token}`
 } as any;
+
+interface Query {
+  account?: string;
+  page: number;
+}
+
+interface Page {
+  total: number;
+  size: number;
+}
+
+const queryData = ref<Query>({
+  account: "",
+  page: 1
+});
+
+const pageInfo = ref<Page>({
+  total: 0,
+  size: 1
+});
 
 const fun = {
   /** 查詢 */
-  doQuery: () => {
+  doQuery: (p: number = 1) => {
+    queryData.value.page = p;
+
     fetch("/api/account/query", {
       method: "POST",
       headers: headers,
-      body: JSON.stringify({}),
+      body: JSON.stringify(queryData.value)
     })
       .then((res) => {
         return res.json();
       })
       .then((res) => {
         if (res.success) {
+          pageInfo.value.total = res.total;
+          pageInfo.value.size = res.total > 0 ? Math.ceil(res.total / 5) : 1;
+
           vm.value.data = res.results;
         } else {
           alert(res.message); // 錯誤訊息
@@ -142,7 +158,7 @@ const fun = {
       isEdit: true,
       accountNo: "",
       name: "",
-      password: "",
+      password: ""
     });
     vm.value.item = vm.value.data[0];
   },
@@ -159,7 +175,7 @@ const fun = {
       fetch("/api/account/remove", {
         method: "POST",
         headers: headers,
-        body: JSON.stringify({ accountNo: item.accountNo }),
+        body: JSON.stringify({ accountNo: item.accountNo })
       })
         .then((res) => {
           return res.json();
@@ -181,7 +197,7 @@ const fun = {
       fetch(`/api/account/${item.isNew ? "new" : "save"}`, {
         method: "POST",
         headers: headers,
-        body: JSON.stringify({ item: item }),
+        body: JSON.stringify({ item: item })
       })
         .then((res) => {
           return res.json();
@@ -206,6 +222,28 @@ const fun = {
     }
     vm.value.isEdit = false;
   },
+  /** 匯出Excel */
+  doExcel: () => {
+    fetch("/api/account/excel", {
+      method: "POST",
+      headers: headers,
+      body: JSON.stringify(queryData.value)
+    })
+      .then((res) => {
+        return res.blob();
+      })
+      .then((blob) => {
+        console.log(blob);
+        const url = window.URL.createObjectURL(blob);
+        const fileLink = document.createElement("a");
+
+        fileLink.href = url;
+        fileLink.download = "excel.xlsx"; // download filename
+        document.body.appendChild(fileLink); // append file link to download
+        fileLink.click();
+        fileLink.remove(); // remove file link after click
+      });
+  }
 };
 
 fun.doQuery();
